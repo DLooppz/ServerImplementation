@@ -5,6 +5,7 @@
 #include <unistd.h> 
 #include "dloopzServer.h"
 
+// last change
 void QueueInit(Queue_t *pQ){
     pQ->putter = pQ->getter = 0;
     pthread_mutex_init(&pQ->lock, NULL);
