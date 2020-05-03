@@ -12,6 +12,7 @@ void QueueInit(Queue_t *pQ){
     pthread_cond_init(&pQ->valuesCond, NULL);
 }
 
+// test 
 unsigned int QueueNumElements(Queue_t *pQ){
     int ret;
     pthread_mutex_lock(&pQ->lock);
