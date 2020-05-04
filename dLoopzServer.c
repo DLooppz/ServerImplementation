@@ -34,7 +34,7 @@ void QueuePut(Queue_t *pQ, WorkUnit_t *job){
 }
 
 int QueueGet(Queue_t *pQ, int e){
-    int ret;
+    int ret; 
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter == pQ->getter)
         pthread_cond_wait(&pQ->valuesCond, &pQ->lock);
@@ -140,6 +140,9 @@ void serverDestroy(WorkServer_t *server){
 
 void serverUpdateParams(WorkServer_t *server, int n_workers){
     server->params.n_workers = n_workers;
+    // Identify each worker ID (large and rare number) with an index from 0 to n_queues,
+    // so then each worker can get and put jobs in their queues.
+    
 }
 
 void serverPrintParams(WorkServer_t *server){
@@ -175,13 +178,13 @@ void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag){
     }
     
     // Job in progress
-    if (flag == 'p'){
+    else if (flag == 'p'){
         server->stats.jobs_inProgress++;
         server->stats.dead_time = job->stats.startProcTime - job->stats.submitTime + server->stats.dead_time;
     }
 
     // Job done
-    if (flag == 'd'){
+    else if (flag == 'd'){
         server->stats.jobs_done++;
         server->stats.jobs_inProgress--;
         server->stats.total_time = job->stats.endProcTime - job->stats.submitTime + server->stats.total_time;
@@ -226,15 +229,28 @@ void workUnitDestroy(WorkUnit_t *jobToDestroy){
 
 void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server){
 
-    // Design decision: if server is "0 type" (many queues), submit in a random one
-    if (server->params.queue_type == 1){
-        QueuePut()
+    // Server type: 0 (many queues). Submit in a random one
+    if (server->params.queue_type == 0){
 
-
+        QueuePut(server->queue[ rand() % (server->params.n_workers + 1) ],jobToSubmit);
+        jobToSubmit->stats.submitTime = time(NULL);
     }
 
+    // Server type: 1 (unic queue)
+    if (server->params.queue_type == 1){
+        
+        QueuePut(server->queue, jobToSubmit);
+        jobToSubmit->stats.submitTime = time(NULL);
+    }
+    
+    serverUpdateStats(server, jobToSubmit, 's');
 }
 
+void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID){
+    
+
+
+}
 
 
 // Generator object -------------------------------------------------------------

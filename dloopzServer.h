@@ -84,8 +84,8 @@ typedef struct {
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
 void workUnitDestroy(WorkUnit_t *jobToDestroy);
 void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
-void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server);   // Used from Workers 
-void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server);   // Used from Workers
+void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);   // Used from Workers 
+void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);   // Used from Workers
 
 // Generators object ---------------------------------
 typedef struct {
