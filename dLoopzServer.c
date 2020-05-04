@@ -24,11 +24,11 @@ unsigned int QueueNumElements(Queue_t *pQ){
     return ret;
 }
 
-void QueuePut(Queue_t *pQ, int e){
+void QueuePut(Queue_t *pQ, WorkUnit_t *job){
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter - pQ->getter == MAX_ELEMENTS)
         pthread_cond_wait(&pQ->spaceCond, &pQ->lock);
-    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = e;
+    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = job;
     pthread_cond_signal(&pQ->valuesCond);
     pthread_mutex_unlock(&pQ->lock);
 }
@@ -209,11 +209,32 @@ WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo){
     WorkUnit_t *newJob = malloc(sizeof(WorkUnit_t));
     assert(newJob);
 
+    newJob->id ++;
+    newJob->fun = taskToDo;
+    newJob->context = NULL;
+    newJob->stats.submitTime = 0;
+    newJob->stats.startProcTime = 0;
+    newJob->stats.endProcTime = 0;
 
-    
+    return newJob;
+}
 
+void workUnitDestroy(WorkUnit_t *jobToDestroy){
+
+    free(jobToDestroy);
+}
+
+void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server){
+
+    // Design decision: if server is "0 type" (many queues), submit in a random one
+    if (server->params.queue_type == 1){
+        QueuePut()
+
+
+    }
 
 }
+
 
 
 // Generator object -------------------------------------------------------------

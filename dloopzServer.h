@@ -19,8 +19,8 @@ typedef struct {
 // Queue methods
 void QueueInit(Queue_t *pQ);
 unsigned int QueueNumElements(Queue_t *pQ);
-void QueuePut(Queue_t *pQ, int e);
-int QueueGet(Queue_t *pQ, int e);
+void QueuePut(Queue_t *pQ, WorkUnit_t *job);
+int QueueGet(Queue_t *pQ, WorkUnit_t *job);
 
 
 // TaskToDo object ---------------------------------
@@ -83,8 +83,6 @@ typedef struct {
 
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
 void workUnitDestroy(WorkUnit_t *jobToDestroy);
-void workUnitSetParams(WorkUnit_t *jobToSet, void *contextToSet);
-void workUnitGetParams(WorkUnit_t *jobToGet, void *contextToGet);
 void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
 void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server);   // Used from Workers 
 void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server);   // Used from Workers
