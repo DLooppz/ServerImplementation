@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <time.h>
 #define MAX_ELEMENTS 128
+#define GEN_MAX_LIFE 1000
 
 // Queue object ---------------------------------
 typedef struct {
@@ -24,6 +25,11 @@ int QueueGet(Queue_t *pQ, int e);
 
 // TaskToDo object ---------------------------------
 typedef void (*ProcFunc_t)(void *ctx);
+
+
+// ThreadFunctions ---------------------------------
+void* fthreadGenerator(void *GeneratorObject);
+void* fthreadWorker(void *WorkerObject);
 
 
 // Server object ----------------------------------
@@ -86,7 +92,7 @@ void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server);   // Used from
 // Generators object ---------------------------------
 typedef struct {
     int interval;  /* generation time interval in seconds */
-    int life_time; /* number of jobs to generate. -1 for eternal life */
+    int life_time; /* number of jobs to generate */
     unsigned int rand_seed; 
 } FWUnitGenParams_t;
 
@@ -103,6 +109,8 @@ void generatorRun();
 void generatorStop();
 void generatorSetParams(); 
 void generatorGetParams();
+void _generatorTryRun(pthread_mutex_t *mutex);
+void _generatorUnlock(pthread_mutex_t *mutex);
 
 // ------------------------------------------------------
 // Workers
