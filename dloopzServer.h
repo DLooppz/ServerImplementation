@@ -37,8 +37,10 @@ typedef struct {
     int jobs_inProgress;
     int jobs_done;
     int jobs_mean_time;
+    int dead_time;
+    int mean_dead_time;
     int total_time;
-    int larger_time;
+    int largest_time;
     int shortest_time;
 } WorkServerStats;
 
@@ -54,7 +56,7 @@ void serverDestroy(WorkServer_t *server);
 void serverUpdateParams(WorkServer_t *server, int n_workers);
 void serverPrintParams(WorkServer_t *server);
 void serverPrintStats(WorkServer_t *server);
-void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job);
+void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
 
 
 // WorkUnit object ---------------------------------
