@@ -3,7 +3,10 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h> 
+#include <assert.h>
 #include "dloopzServer.h"
+
+WorkUnitId jobId = 1;
 
 // Queue functions -------------------------------------------------------------
 void QueueInit(Queue_t *pQ){
@@ -39,6 +42,42 @@ int QueueGet(Queue_t *pQ, int e){
     pthread_cond_signal(&pQ->spaceCond);
     pthread_mutex_unlock(&pQ->lock);
     return ret;
+}
+
+
+// ThreadFunctions ---------------------------------
+void* fthreadGenerator(void *GeneratorObject){
+    /* Function to be executed by a generator thread. Represents the life of a particular generator. */
+
+    FakeWorkUnitGen_t *thisGenerator = (FakeWorkUnitGen_t *)GeneratorObject;
+
+    for (int i=0;i<thisGenerator->genParams.life_time;i++){
+        // Always check if this generator can run (if server didnt stop it) 
+        _generatorTryRun(&thisGenerator->sem);
+
+        // Create a new job request (with some logic select which task)
+        // WorkUnit_t *JobRequest = workUnitCreate(some_task)
+
+        // Complete job fields
+    
+        // Submit to server (updates must be done)
+
+
+        // Simulate generation difficulty. Also gives time to stop generator if its needed
+        _generatorUnlock(&thisGenerator->sem);
+        sleep(thisGenerator->genParams.interval);        
+    }
+
+    // Use iterator to check errors
+    return (void *)(i == thisGenerator->genParams.life_time);
+}
+
+void* fthreadWorker(void *WorkerObject){
+
+    WorkerThread_t *thisWorker = (WorkerThread_t *)WorkerObject;
+
+
+    return NULL;
 }
 
 // Server functions -------------------------------------------------------------
@@ -163,12 +202,30 @@ void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag){
     }
 }
 
+
 // WorkUnit functions -------------------------------------------------------------
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo){
 
     WorkUnit_t *newJob = malloc(sizeof(WorkUnit_t));
+    assert(newJob);
+
+
     
 
 
 }
 
+
+// Generator object -------------------------------------------------------------
+
+void _generatorTryRun(pthread_mutex_t *mutex){
+
+    // Used by generator when attempts to produce a WorkUnit
+    pthread_mutex_lock(mutex);
+}
+
+void _generatorUnlock(pthread_mutex_t *mutex){
+
+    // Used by generator after producing one succesful WorkUnit
+    pthread_mutex_unlock(mutex);
+}
