@@ -64,6 +64,7 @@ void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int 
 void serverPrintParams(WorkServer_t *server);
 void serverPrintStats(WorkServer_t *server);
 void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
+int _serverGetWorkerThreadIndex(pthread_t threadID, WorkServer_t *server);
 
 
 // WorkUnit object ---------------------------------
@@ -76,7 +77,7 @@ typedef struct {
 } WorkUnitStat_t;
 
 typedef struct {
-    WorkUnitId id;
+    WorkUnitId worker_id;
     ProcFunc_t fun;
     void *context;
     WorkUnitStat_t stats;
@@ -85,8 +86,8 @@ typedef struct {
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
 void workUnitDestroy(WorkUnit_t *jobToDestroy);
 void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
-void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);   // Used from Workers  (TODO)
-void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);   // Used from Workers (TODO)
+void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);
+void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);
 
 // Generators object ---------------------------------
 typedef struct {
@@ -103,15 +104,15 @@ typedef struct {
     WorkServer_t *serverToGenerate;
 } FakeWorkUnitGen_t;
 
-FakeWorkUnitGen_t* generatorCreate(); // TODO: crea un tipin 
-void generatorInit(FakeWorkUnitGen_t *newGenerator);    // TODO: Lanza un thread con el tipin
-void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy); // TODO
-void generatorRun(pthread_mutex_t *mutex); 
-void generatorStop(pthread_mutex_t *mutex); 
-void generatorSetParams(int interval, int life_time, unsigned int rand_seed); // TODO
-FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator); // TODO
-void _generatorTryRun(pthread_mutex_t *mutex);
-void _generatorUnlock(pthread_mutex_t *mutex);
+FakeWorkUnitGen_t* generatorCreate(WorkServer_t *server); 
+void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate);  
+void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy); 
+void generatorSetParams(FakeWorkUnitGen_t *generator, int interval, int life_time, unsigned int rand_seed); 
+FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator); 
+void generatorRun(pthread_mutex_t *mutex);  /* Used from main (server) */
+void generatorStop(pthread_mutex_t *mutex); /* Used from main (server) */
+void _generatorTryRun(pthread_mutex_t *mutex); /* Used from generator units */
+void _generatorUnlock(pthread_mutex_t *mutex); /* Used from generator units */
 
 // ------------------------------------------------------
 // Workers
@@ -126,9 +127,9 @@ typedef struct {
 } WorkerThread_t;
 
 WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server);      /* Use from main (server) */
-void workersInit(WorkerThread_t* workersArray);                         /* TODO: Use from main (server) */
-void workersDestroy(WorkerThread_t *workersArray);                      /* TODO: Use from main (server) */
-WorkUnit_t* workerGetJob(WorkServer_t *server);                         /* TODO: Use from workers */
+void workersInit(int nWorkers, WorkerThread_t* workersArray);           /* Use from main (server) */
+void workersDestroy(WorkerThread_t *workersArray);                      /* Use from main (server) */
+WorkUnit_t* workerGetJob(WorkServer_t *server, pthread_t worker_id);    /* Use from workers */
 
 
 #endif 

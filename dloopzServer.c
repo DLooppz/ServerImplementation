@@ -28,7 +28,7 @@ void QueuePut(Queue_t *pQ, WorkUnit_t *job){
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter - pQ->getter == MAX_ELEMENTS)
         pthread_cond_wait(&pQ->spaceCond, &pQ->lock);
-    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = *job;
+    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = job;
     pthread_cond_signal(&pQ->valuesCond);
     pthread_mutex_unlock(&pQ->lock);
 }
@@ -49,8 +49,11 @@ WorkUnit_t* QueueGet(Queue_t *pQ){
 void* fthreadGenerator(void *GeneratorObject){
     /* Function to be executed by a generator thread. Represents the life of a particular generator. */
     
-    FakeWorkUnitGen_t *thisGenerator = (FakeWorkUnitGen_t *)GeneratorObject;
     int i;
+    FakeWorkUnitGen_t *thisGenerator = (FakeWorkUnitGen_t *)GeneratorObject;
+
+    // Get this generator ID
+    thisGenerator->generator_id = pthread_self();
 
     for (i=0;i<thisGenerator->genParams.life_time;i++){
         // Always check if this generator can run (if server didnt stop it) 
@@ -79,9 +82,12 @@ void* fthreadWorker(void *WorkerObject){
     WorkUnit_t *newJobToDo;
     WorkerThread_t *thisWorker = (WorkerThread_t *)WorkerObject;
 
+    // Get this worker ID
+    thisWorker->worker_id = pthread_self();
+
     while(1){
         // Ask server for a new job to do
-        newJobToDo = workerGetJob(thisWorker->server);
+        newJobToDo = workerGetJob(thisWorker->server, thisWorker->worker_id);
         
         // Notify server that job begins (update both job and server stats)
         workUnitBegins(newJobToDo,thisWorker->server,thisWorker->worker_id);
@@ -236,6 +242,17 @@ void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag){
     }
 }
 
+int _serverGetWorkerThreadIndex(pthread_t threadID, WorkServer_t *server){
+
+    /* Returns index associated with  worker thread ID */
+    for (int i=0;i<server->params.n_workers;i++){
+        if (threadID == server->params.thread_ids[i])
+            return i;
+    }
+    printf("Error: ThreadID incorrect\n");
+    exit(2);
+}
+
 
 // WorkUnit functions -------------------------------------------------------------
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo){
@@ -279,16 +296,20 @@ void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server){
 }
 
 void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID){
-    // TODO
-
-
+    
+    // Update stats
+    jobBegins->stats.startProcTime = time(NULL);
+    serverUpdateStats(server,jobBegins,'p');
 }
 
 void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID){
-    // TODO
     
+    // Update stats
+    jobDone->stats.endProcTime = time(NULL);
+    serverUpdateStats(server,jobDone,'d');
 
-
+    // Destroy WorkUnit
+    workUnitDestroy(jobDone);
 }
 
 
@@ -302,7 +323,6 @@ void generatorStop(pthread_mutex_t *mutex){
     pthread_mutex_unlock(mutex);
 }
 
-
 void _generatorTryRun(pthread_mutex_t *mutex){
     // Used by generator when attempts to produce a WorkUnit
     pthread_mutex_lock(mutex);
@@ -313,7 +333,74 @@ void _generatorUnlock(pthread_mutex_t *mutex){
     pthread_mutex_unlock(mutex);
 }
 
+FakeWorkUnitGen_t* generatorCreate(WorkServer_t *server){
 
+    // Space for new Generator Unit
+    FakeWorkUnitGen_t *newGenerator = malloc(sizeof(FakeWorkUnitGen_t));
+    assert(newGenerator);
+
+    // Params by default
+    newGenerator->genParams.interval = 1;
+    newGenerator->genParams.life_time = GEN_MAX_LIFE;
+    newGenerator->genParams.rand_seed = rand() % 64;
+
+    // Mutex init
+    pthread_mutex_init(&newGenerator->sem, NULL);
+
+    // Associate to one server
+    newGenerator->serverToGenerate = server;
+
+    // No function or list of functions until init()
+    newGenerator->task = NULL;
+
+    // No ID until init()
+
+    return newGenerator;
+}
+
+void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate){
+
+	pthread_t newGenID;
+    int err;
+
+    // Add task (or list of possible task, in future) to generate
+    newGenerator->task = taskToGenerate;
+
+    // Init thread (generator gets ID in his thread)
+    err = pthread_create(&newGenID, NULL, &fthreadGenerator, newGenerator);
+    
+    // Check if thread is created successfuly
+    if (err) {
+        printf("Generator thread creation failed : %s\n", strerror(err));
+        exit(3);
+    }
+    else
+        printf("Generator thread initiated with ID : 0x%x\n", newGenID);
+}
+
+void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy){
+
+    free(generatorToDestroy);
+}
+
+void generatorSetParams(FakeWorkUnitGen_t *generator, int interval, int life_time, unsigned int rand_seed){
+    /* Optionally use this function to change default parameters of generator */
+    
+    generator->genParams.interval = interval;
+    generator->genParams.life_time = life_time;
+    generator->genParams.rand_seed = rand_seed;
+}
+
+FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator){
+    /* The lucky man/girl who decides to use this function must destroy later this params, or pray for a god to free this space... */
+
+    FWUnitGenParams_t *parameters = malloc(sizeof(FWUnitGenParams_t));
+    parameters->interval = generator->genParams.interval;
+    parameters->life_time = generator->genParams.life_time;
+    parameters->rand_seed = generator->genParams.rand_seed;
+
+    return parameters;
+}
 
 // Worker object -------------------------------------------------------------
 
@@ -331,7 +418,45 @@ WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server){
     return newWorkersArray;
 }
 
-void workersInit(WorkerThread_t* workersArray){
+void workersInit(int nWorkers, WorkerThread_t* workersArray){
     
-    // TODO
+	pthread_t newWorkerID[nWorkers];
+    int i, err;
+    srand(time(NULL));
+
+    // Init threads (workers gets their IDs in their threads)
+    for(i = 0; i < nWorkers; i++) {
+        err = pthread_create(&newWorkerID[i], NULL, &fthreadWorker, &workersArray[i]);
+        
+        // Check if thread is created sucessfuly
+        if (err) {
+            printf("Worker thread creation failed : %s\n", strerror(err));
+            exit(3);
+        }
+        else
+            printf("Worker thread created with ID : 0x%x\n", newWorkerID[i]);
+    }
+}
+
+void workersDestroy(WorkerThread_t *workersArray){
+    
+    free(workersArray);
+}
+
+WorkUnit_t* workerGetJob(WorkServer_t *server, pthread_t worker_id){
+    
+    WorkUnit_t *jobToStart;
+
+    // Case of unic queue
+    if (server->params.queue_type == 1){
+        jobToStart = QueueGet(server->queue);
+    }
+
+    // Case of many queues (each worker has a designed queue)
+    if (server->params.queue_type == 1){
+        int worker_idx = _serverGetWorkerThreadIndex(worker_id);
+        jobToStart = QueueGet(&server->queue[worker_idx]);
+    }
+
+    return jobToStart;
 }
