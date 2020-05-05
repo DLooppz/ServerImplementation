@@ -6,7 +6,7 @@
 #include <assert.h>
 #include "dloopzServer.h"
 
-WorkUnitId jobId = 1;
+WorkUnitId jobId = 0;
 
 // Queue functions -------------------------------------------------------------
 void QueueInit(Queue_t *pQ){
@@ -28,7 +28,7 @@ void QueuePut(Queue_t *pQ, WorkUnit_t *job){
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter - pQ->getter == MAX_ELEMENTS)
         pthread_cond_wait(&pQ->spaceCond, &pQ->lock);
-    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = *job;
+    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = job;
     pthread_cond_signal(&pQ->valuesCond);
     pthread_mutex_unlock(&pQ->lock);
 }
@@ -38,7 +38,7 @@ WorkUnit_t* QueueGet(Queue_t *pQ){
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter == pQ->getter)
         pthread_cond_wait(&pQ->valuesCond, &pQ->lock);
-    ret = &pQ->elements[pQ->getter++ % MAX_ELEMENTS];
+    ret = pQ->elements[pQ->getter++ % MAX_ELEMENTS];
     pthread_cond_signal(&pQ->spaceCond);
     pthread_mutex_unlock(&pQ->lock);
     return ret;
@@ -55,6 +55,7 @@ void* fthreadGenerator(void *GeneratorObject){
     // Get this generator ID
     thisGenerator->generator_id = pthread_self();
 
+    printf("(GENERATOR 0x%lx) Generation begins now\n",thisGenerator->generator_id);
     for (i=0;i<thisGenerator->genParams.life_time;i++){
         // Always check if this generator can run (if server didnt stop it) 
         _generatorTryRun(&thisGenerator->sem);
@@ -86,22 +87,23 @@ void* fthreadWorker(void *WorkerObject){
     // Get this worker ID
     thisWorker->worker_id = pthread_self();
 
+    printf("(WORKER 0x%lx) Now begins work\n",thisWorker->worker_id);
     while(1){
         // Ask server for a new job to do
         newJobToDo = workerGetJob(thisWorker->server, thisWorker->worker_id);
-        
+
         // Notify server that job begins (update both job and server stats)
         workUnitBegins(newJobToDo,thisWorker->server,thisWorker->worker_id);
 
         // Do the job
         newJobToDo->fun(newJobToDo->context);
-        printf("Work finished! (WU ID: %d)\n",newJobToDo->id);
+        printf("(WORKER 0x%lx) Work finished! (WU ID: %d)\n",thisWorker->worker_id,newJobToDo->id);
 
         // Update stats and delete WorkUnit
         workUnitFinished(newJobToDo, thisWorker->server, thisWorker->worker_id);
 
         // hardcode time working
-        sleep(2);
+        sleep(1);
     }
     return NULL;
 }
@@ -131,6 +133,7 @@ WorkServer_t* serverCreate1(){
     newServer->stats.shortest_time = 3600;
     newServer->stats.total_time = 0;
 
+    printf("(SERVER type_1) created\n");
     return newServer;
 }
 
@@ -161,6 +164,7 @@ WorkServer_t* serverCreate0(unsigned int n_queues){
     newServer->stats.shortest_time = 3600;
     newServer->stats.total_time = 0;
 
+    printf("(SERVER type_0) created\n");
     return newServer;
 }
 
@@ -169,16 +173,9 @@ void serverDestroy(WorkServer_t *server){
     free(server);
 }
 
-void serverInit(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers){
+void serverInit(WorkServer_t *server, int n_workers){
     
     server->params.n_workers = n_workers;
-    
-    // Identify each worker ID with an index from 0 to n_queues
-    if (server->params.queue_type == 0){
-        for (int i=0;i<n_workers;i++){
-            server->params.thread_ids[i] = workersArray[i].worker_id;
-        }
-    }
 }
 
 void serverPrintParams(WorkServer_t *server){
@@ -196,15 +193,15 @@ void serverPrintParams(WorkServer_t *server){
 void serverPrintStats(WorkServer_t *server){
 
     printf("******* Server stats *******\n");
-    printf("  Number of job requests: %d",server->stats.job_requests);
-    printf("  Number of jobs in done: %d",server->stats.jobs_done);
-    printf("  Number of jobs in progress: %d",server->stats.jobs_inProgress);
-    printf("  Jobs total time: %d [s]",server->stats.total_time);
-    printf("  Jobs mean time: %d [s]",server->stats.jobs_mean_time);
-    printf("  Jobs dead time: %d [s]",server->stats.dead_time);
-    printf("  Jobs mean dead time: %d [s]",server->stats.mean_dead_time);
-    printf("  Jobs largest time: %d [s]",server->stats.largest_time);
-    printf("  Jobs shortest time: %d [s]",server->stats.shortest_time);
+    printf("  Number of job requests: %d\n",server->stats.job_requests);
+    printf("  Number of jobs done: %d\n",server->stats.jobs_done);
+    printf("  Number of jobs in progress: %d\n",server->stats.jobs_inProgress);
+    printf("  Jobs total time: %d [s]\n",server->stats.total_time);
+    printf("  Jobs mean time: %d [s]\n",server->stats.jobs_mean_time);
+    printf("  Jobs dead time: %d [s]\n",server->stats.dead_time);
+    printf("  Jobs mean dead time: %d [s]\n",server->stats.mean_dead_time);
+    printf("  Jobs largest time: %d [s]\n",server->stats.largest_time);
+    printf("  Jobs shortest time: %d [s]\n",server->stats.shortest_time);
     printf("****************************\n");
 }
 
@@ -273,7 +270,6 @@ WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo){
 }
 
 void workUnitDestroy(WorkUnit_t *jobToDestroy){
-
     free(jobToDestroy);
 }
 
@@ -375,8 +371,8 @@ void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate){
         printf("Generator thread creation failed : %s\n", strerror(err));
         exit(3);
     }
-    else
-        printf("Generator thread initiated with ID : 0x%lx\n", newGenID);
+    // else
+    //     printf("Generator thread initiated with ID : 0x%lx\n", newGenID);
 }
 
 void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy){
@@ -418,7 +414,7 @@ WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server){
     return newWorkersArray;
 }
 
-void workersInit(int nWorkers, WorkerThread_t* workersArray){
+void workersInit(WorkServer_t *server, int nWorkers, WorkerThread_t* workersArray){
     
 	pthread_t newWorkerID[nWorkers];
     int i, err;
@@ -427,14 +423,13 @@ void workersInit(int nWorkers, WorkerThread_t* workersArray){
     // Init threads (workers gets their IDs in their threads)
     for(i = 0; i < nWorkers; i++) {
         err = pthread_create(&newWorkerID[i], NULL, &fthreadWorker, &workersArray[i]);
-        
+        server->params.thread_ids[i] = newWorkerID[i];
+
         // Check if thread is created sucessfuly
         if (err) {
             printf("Worker thread creation failed : %s\n", strerror(err));
             exit(3);
         }
-        else
-            printf("Worker thread created with ID : 0x%lx\n", newWorkerID[i]);
     }
 }
 
@@ -453,7 +448,7 @@ WorkUnit_t* workerGetJob(WorkServer_t *server, pthread_t worker_id){
     }
 
     // Case of many queues (each worker has a designed queue)
-    if (server->params.queue_type == 1){
+    if (server->params.queue_type == 0){
         int worker_idx = _serverGetWorkerThreadIndex(worker_id, server);
         jobToStart = QueueGet(&server->queue[worker_idx]);
     }

@@ -33,7 +33,7 @@ typedef struct {
     pthread_mutex_t lock;
     pthread_cond_t  spaceCond;
     pthread_cond_t  valuesCond;
-    WorkUnit_t elements[MAX_ELEMENTS];
+    WorkUnit_t *elements[MAX_ELEMENTS];
 } Queue_t; 
 
 // Server object ----------------------------------
@@ -97,11 +97,11 @@ WorkUnit_t* QueueGet(Queue_t *pQ);
 void* fthreadGenerator(void *GeneratorObject);
 void* fthreadWorker(void *WorkerObject);
 
-// Worker methods ----------------------------------
+// Server methods ----------------------------------
 WorkServer_t* serverCreate1();
 WorkServer_t* serverCreate0(unsigned int n_queues);
 void serverDestroy(WorkServer_t *server);
-void serverInit(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
+void serverInit(WorkServer_t *server, int n_workers);
 void serverPrintParams(WorkServer_t *server);
 void serverPrintStats(WorkServer_t *server);
 void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
@@ -129,7 +129,7 @@ void _generatorUnlock(pthread_mutex_t *mutex); /* Used from generator units */
 
 // Workers methods---------------------------------
 WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server);      /* Use from main (server) */
-void workersInit(int nWorkers, WorkerThread_t* workersArray);           /* Use from main (server) */
+void workersInit(WorkServer_t *server, int nWorkers, WorkerThread_t* workersArray);           /* Use from main (server) */
 void workersDestroy(WorkerThread_t *workersArray);                      /* Use from main (server) */
 WorkUnit_t* workerGetJob(WorkServer_t *server, pthread_t worker_id);    /* Use from workers */
 
