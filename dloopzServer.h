@@ -6,6 +6,26 @@
 #define MAX_ELEMENTS 128
 #define GEN_MAX_LIFE 1000
 
+
+// TaskToDo object ---------------------------------
+typedef void (*ProcFunc_t)(void *ctx);
+
+// WorkUnit object ---------------------------------
+typedef unsigned int WorkUnitId;
+
+typedef struct {
+    time_t submitTime;
+    time_t startProcTime;
+    time_t endProcTime;
+} WorkUnitStat_t;
+
+typedef struct {
+    WorkUnitId id;
+    ProcFunc_t fun;
+    void *context;
+    WorkUnitStat_t stats;
+} WorkUnit_t;
+
 // Queue object ---------------------------------
 typedef struct {
     unsigned int putter,
@@ -15,22 +35,6 @@ typedef struct {
     pthread_cond_t  valuesCond;
     WorkUnit_t elements[MAX_ELEMENTS];
 } Queue_t; 
-
-// Queue methods
-void QueueInit(Queue_t *pQ);
-unsigned int QueueNumElements(Queue_t *pQ);
-void QueuePut(Queue_t *pQ, WorkUnit_t *job);
-WorkUnit_t* QueueGet(Queue_t *pQ);
-
-
-// TaskToDo object ---------------------------------
-typedef void (*ProcFunc_t)(void *ctx);
-
-
-// ThreadFunctions ---------------------------------
-void* fthreadGenerator(void *GeneratorObject);
-void* fthreadWorker(void *WorkerObject);
-
 
 // Server object ----------------------------------
 typedef struct {
@@ -57,38 +61,6 @@ typedef struct {
     WorkServerStats stats;
 } WorkServer_t;
 
-WorkServer_t* serverInit1();
-WorkServer_t* serverInit0(unsigned int n_queues);
-void serverDestroy(WorkServer_t *server);
-void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
-void serverPrintParams(WorkServer_t *server);
-void serverPrintStats(WorkServer_t *server);
-void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
-int _serverGetWorkerThreadIndex(pthread_t threadID, WorkServer_t *server);
-
-
-// WorkUnit object ---------------------------------
-typedef unsigned int WorkUnitId;
-
-typedef struct {
-    time_t submitTime;
-    time_t startProcTime;
-    time_t endProcTime;
-} WorkUnitStat_t;
-
-typedef struct {
-    WorkUnitId worker_id;
-    ProcFunc_t fun;
-    void *context;
-    WorkUnitStat_t stats;
-} WorkUnit_t;
-
-WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
-void workUnitDestroy(WorkUnit_t *jobToDestroy);
-void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
-void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);
-void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);
-
 // Generators object ---------------------------------
 typedef struct {
     int interval;  /* generation time interval in seconds */
@@ -104,18 +76,7 @@ typedef struct {
     WorkServer_t *serverToGenerate;
 } FakeWorkUnitGen_t;
 
-FakeWorkUnitGen_t* generatorCreate(WorkServer_t *server); 
-void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate);  
-void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy); 
-void generatorSetParams(FakeWorkUnitGen_t *generator, int interval, int life_time, unsigned int rand_seed); 
-FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator); 
-void generatorRun(pthread_mutex_t *mutex);  /* Used from main (server) */
-void generatorStop(pthread_mutex_t *mutex); /* Used from main (server) */
-void _generatorTryRun(pthread_mutex_t *mutex); /* Used from generator units */
-void _generatorUnlock(pthread_mutex_t *mutex); /* Used from generator units */
-
-// ------------------------------------------------------
-// Workers
+// Workers obects ---------------------------------
 typedef struct {
     int status;         /* 0: bussy ; 1: free */
 } WorkerThreadStatus;
@@ -126,6 +87,48 @@ typedef struct {
     WorkServer_t *server;
 } WorkerThread_t;
 
+
+// Queue methods ---------------------------------
+void QueueInit(Queue_t *pQ);
+unsigned int QueueNumElements(Queue_t *pQ);
+void QueuePut(Queue_t *pQ, WorkUnit_t *job);
+WorkUnit_t* QueueGet(Queue_t *pQ);
+
+// ThreadFunctions ---------------------------------
+void* fthreadGenerator(void *GeneratorObject);
+void* fthreadWorker(void *WorkerObject);
+
+// Worker methods ----------------------------------
+WorkServer_t* serverInit1();
+WorkServer_t* serverInit0(unsigned int n_queues);
+void serverDestroy(WorkServer_t *server);
+void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
+void serverPrintParams(WorkServer_t *server);
+void serverPrintStats(WorkServer_t *server);
+void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
+int _serverGetWorkerThreadIndex(pthread_t threadID, WorkServer_t *server);
+
+// Worker methods ----------------------------------
+WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
+void workUnitDestroy(WorkUnit_t *jobToDestroy);
+void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
+void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);
+void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);
+
+
+// Generator methods ----------------------------------
+FakeWorkUnitGen_t* generatorCreate(WorkServer_t *server); 
+void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate);  
+void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy); 
+void generatorSetParams(FakeWorkUnitGen_t *generator, int interval, int life_time, unsigned int rand_seed); 
+FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator); 
+void generatorRun(pthread_mutex_t *mutex);  /* Used from main (server) */
+void generatorStop(pthread_mutex_t *mutex); /* Used from main (server) */
+void _generatorTryRun(pthread_mutex_t *mutex); /* Used from generator units */
+void _generatorUnlock(pthread_mutex_t *mutex); /* Used from generator units */
+
+
+// Workers methods---------------------------------
 WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server);      /* Use from main (server) */
 void workersInit(int nWorkers, WorkerThread_t* workersArray);           /* Use from main (server) */
 void workersDestroy(WorkerThread_t *workersArray);                      /* Use from main (server) */
