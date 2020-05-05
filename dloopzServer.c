@@ -28,7 +28,7 @@ void QueuePut(Queue_t *pQ, WorkUnit_t *job){
     pthread_mutex_lock(&pQ->lock);
     while(pQ->putter - pQ->getter == MAX_ELEMENTS)
         pthread_cond_wait(&pQ->spaceCond, &pQ->lock);
-    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = job;
+    pQ->elements[pQ->putter++ % MAX_ELEMENTS] = *job;
     pthread_cond_signal(&pQ->valuesCond);
     pthread_mutex_unlock(&pQ->lock);
 }
@@ -74,7 +74,8 @@ void* fthreadGenerator(void *GeneratorObject){
     }
 
     // Use iterator to check errors
-    return (void *)((i+1) == thisGenerator->genParams.life_time);
+    // return ((void *)((i+1) == thisGenerator->genParams.life_time));
+    return NULL;
 }
 
 void* fthreadWorker(void *WorkerObject){
@@ -375,7 +376,7 @@ void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate){
         exit(3);
     }
     else
-        printf("Generator thread initiated with ID : 0x%x\n", newGenID);
+        printf("Generator thread initiated with ID : 0x%lx\n", newGenID);
 }
 
 void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy){
@@ -410,7 +411,6 @@ WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server){
     assert(newWorkersArray);
 
     for (int i=0;i<nWorkers;i++){
-        newWorkersArray[i].jobToDo = NULL;
         newWorkersArray[i].params.status = 1;
         newWorkersArray[i].server = server;
     }
@@ -434,7 +434,7 @@ void workersInit(int nWorkers, WorkerThread_t* workersArray){
             exit(3);
         }
         else
-            printf("Worker thread created with ID : 0x%x\n", newWorkerID[i]);
+            printf("Worker thread created with ID : 0x%lx\n", newWorkerID[i]);
     }
 }
 
@@ -454,7 +454,7 @@ WorkUnit_t* workerGetJob(WorkServer_t *server, pthread_t worker_id){
 
     // Case of many queues (each worker has a designed queue)
     if (server->params.queue_type == 1){
-        int worker_idx = _serverGetWorkerThreadIndex(worker_id);
+        int worker_idx = _serverGetWorkerThreadIndex(worker_id, server);
         jobToStart = QueueGet(&server->queue[worker_idx]);
     }
 
