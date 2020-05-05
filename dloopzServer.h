@@ -19,8 +19,8 @@ typedef struct {
 // Queue methods
 void QueueInit(Queue_t *pQ);
 unsigned int QueueNumElements(Queue_t *pQ);
-void QueuePut(Queue_t *pQ, int e);
-int QueueGet(Queue_t *pQ, int e);
+void QueuePut(Queue_t *pQ, WorkUnit_t *job);
+WorkUnit_t* QueueGet(Queue_t *pQ);
 
 
 // TaskToDo object ---------------------------------
@@ -36,6 +36,7 @@ void* fthreadWorker(void *WorkerObject);
 typedef struct {
     int queue_type; /* 1: unic queue ; 0: multiple queues */
     unsigned int n_workers;  /* number of worker threads */
+    pthread_t *thread_ids;
 } WorkServerParams;
 
 typedef struct {
@@ -56,10 +57,10 @@ typedef struct {
     WorkServerStats stats;
 } WorkServer_t;
 
-WorkServer_t* serverInit();
-WorkServer_t* serverInit(unsigned int n_queues);
+WorkServer_t* serverInit1();
+WorkServer_t* serverInit0(unsigned int n_queues);
 void serverDestroy(WorkServer_t *server);
-void serverUpdateParams(WorkServer_t *server, int n_workers);
+void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
 void serverPrintParams(WorkServer_t *server);
 void serverPrintStats(WorkServer_t *server);
 void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);
@@ -83,11 +84,9 @@ typedef struct {
 
 WorkUnit_t* workUnitCreate(ProcFunc_t taskToDo);
 void workUnitDestroy(WorkUnit_t *jobToDestroy);
-void workUnitSetParams(WorkUnit_t *jobToSet, void *contextToSet);
-void workUnitGetParams(WorkUnit_t *jobToGet, void *contextToGet);
 void workUnitSubmit(WorkUnit_t *jobToSubmit, WorkServer_t *server); // Used from Gens
-void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server);   // Used from Workers 
-void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server);   // Used from Workers
+void workUnitBegins(WorkUnit_t *jobBegins, WorkServer_t *server, pthread_t workerID);   // Used from Workers  (TODO)
+void workUnitFinished(WorkUnit_t *jobDone, WorkServer_t *server, pthread_t workerID);   // Used from Workers (TODO)
 
 // Generators object ---------------------------------
 typedef struct {
@@ -100,15 +99,17 @@ typedef struct {
     pthread_t generator_id;
     FWUnitGenParams_t genParams;
     pthread_mutex_t sem;
-    WorkUnit_t *JobRequest;
+    ProcFunc_t task;
+    WorkServer_t *serverToGenerate;
 } FakeWorkUnitGen_t;
 
-FakeWorkUnitGen_t* generatorInit();
-void generatorDestroy();
-void generatorRun();
-void generatorStop();
-void generatorSetParams(); 
-void generatorGetParams();
+FakeWorkUnitGen_t* generatorCreate(); // TODO: crea un tipin 
+void generatorInit(FakeWorkUnitGen_t *newGenerator);    // TODO: Lanza un thread con el tipin
+void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy); // TODO
+void generatorRun(pthread_mutex_t *mutex); 
+void generatorStop(pthread_mutex_t *mutex); 
+void generatorSetParams(int interval, int life_time, unsigned int rand_seed); // TODO
+FWUnitGenParams_t* generatorGetParams(FakeWorkUnitGen_t *generator); // TODO
 void _generatorTryRun(pthread_mutex_t *mutex);
 void _generatorUnlock(pthread_mutex_t *mutex);
 
@@ -120,14 +121,14 @@ typedef struct {
 
 typedef struct {
     pthread_t worker_id;
-    WorkUnit_t *jobToDo;
-    WorkerThreadStatus status;
+    WorkerThreadStatus params;
     WorkServer_t *server;
 } WorkerThread_t;
 
-WorkerThread_t* workersInit(int nWorkers, WorkServer_t *server);        /* Use from main (server) */
-void workersDestroy(WorkerThread_t *workersArray);                      /* Use from main (server) */
-WorkUnit_t* workerGetJob(WorkServer_t *server);                         /* Use from workers */
+WorkerThread_t* workersCreate(int nWorkers, WorkServer_t *server);      /* Use from main (server) */
+void workersInit(WorkerThread_t* workersArray);                         /* TODO: Use from main (server) */
+void workersDestroy(WorkerThread_t *workersArray);                      /* TODO: Use from main (server) */
+WorkUnit_t* workerGetJob(WorkServer_t *server);                         /* TODO: Use from workers */
 
 
 #endif 
