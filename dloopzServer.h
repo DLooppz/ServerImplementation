@@ -87,7 +87,6 @@ typedef struct {
     WorkServer_t *server;
 } WorkerThread_t;
 
-
 // Queue methods ---------------------------------
 void QueueInit(Queue_t *pQ);
 unsigned int QueueNumElements(Queue_t *pQ);
@@ -99,10 +98,10 @@ void* fthreadGenerator(void *GeneratorObject);
 void* fthreadWorker(void *WorkerObject);
 
 // Worker methods ----------------------------------
-WorkServer_t* serverInit1();
-WorkServer_t* serverInit0(unsigned int n_queues);
+WorkServer_t* serverCreate1();
+WorkServer_t* serverCreate0(unsigned int n_queues);
 void serverDestroy(WorkServer_t *server);
-void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
+void serverInit(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers);
 void serverPrintParams(WorkServer_t *server);
 void serverPrintStats(WorkServer_t *server);
 void serverUpdateStats(WorkServer_t *server, WorkUnit_t *job, char flag);

@@ -107,7 +107,7 @@ void* fthreadWorker(void *WorkerObject){
 }
 
 // Server functions -------------------------------------------------------------
-WorkServer_t* serverInit1(){
+WorkServer_t* serverCreate1(){
     /* Creates a new server with one queue by default */
 
     // Alloc memory
@@ -134,7 +134,7 @@ WorkServer_t* serverInit1(){
     return newServer;
 }
 
-WorkServer_t* serverInit0(unsigned int n_queues){
+WorkServer_t* serverCreate0(unsigned int n_queues){
     /* Creates a new server with multiple queues (one for each worker to use) */
     
     // Alloc memory
@@ -169,7 +169,7 @@ void serverDestroy(WorkServer_t *server){
     free(server);
 }
 
-void serverUpdateParams(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers){
+void serverInit(WorkServer_t *server, WorkerThread_t *workersArray, int n_workers){
     
     server->params.n_workers = n_workers;
     
