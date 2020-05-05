@@ -357,7 +357,7 @@ FakeWorkUnitGen_t* generatorCreate(WorkServer_t *server){
 
 void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate){
 
-	pthread_t newGenID;
+    pthread_t newGenID;
     int err;
 
     // Add task (or list of possible task, in future) to generate
@@ -371,8 +371,6 @@ void generatorInit(FakeWorkUnitGen_t *newGenerator, ProcFunc_t taskToGenerate){
         printf("Generator thread creation failed : %s\n", strerror(err));
         exit(3);
     }
-    // else
-    //     printf("Generator thread initiated with ID : 0x%lx\n", newGenID);
 }
 
 void generatorDestroy(FakeWorkUnitGen_t *generatorToDestroy){
